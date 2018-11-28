@@ -14,6 +14,7 @@
 # limitations under the License.
 
 require "fluent/plugin/parser"
+require "thread"
 
 module Fluent
   module Plugin
@@ -28,6 +29,7 @@ module Fluent
       end
       def configure(conf)
         super
+        @mutex = Mutex.new
         if @format_firstline
           check_format_regexp(@format_firstline, 'format_firstline')
           @firstline_regex = Regexp.new(@format_firstline[1..-2])
@@ -58,8 +60,8 @@ module Fluent
 
         return time, record
       end
-      
-      
+
+
       def parse(text)
         if block_given?
           yield values_map(CSV.parse_line(text))
@@ -90,7 +92,7 @@ module Fluent
       def convert_field_type!(record)
         @type_converters.each_key { |key|
           if value = record[key]
-            record[key] = convert_type(key, value)
+            record[key] = @type_converters[key].call(value)
           end
         }
       end
